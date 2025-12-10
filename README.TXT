@@ -79,3 +79,14 @@ John Carmack
 
 Copyright (c) ZeniMax Media Inc.
 Licensed under the GNU General Public License 2.0.
+
+Modern build
+============
+A CMake-based build is available for modern toolchains and package managers.
+To compile with the default X11 backend, install X11 development headers
+(eg. `libx11-dev` on Debian/Ubuntu) and run:
+
+    cmake -S . -B build
+    cmake --build build
+
+The resulting binary is written to `build/bin/linuxdoom`.

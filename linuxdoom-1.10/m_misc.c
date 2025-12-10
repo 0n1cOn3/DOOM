@@ -32,6 +32,8 @@ rcsid[] = "$Id: m_misc.c,v 1.6 1997/02/03 22:45:10 b1 Exp $";
 #include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
+#include <stdint.h>
 
 #include <ctype.h>
 
@@ -222,79 +224,87 @@ extern char*	chat_macros[];
 
 
 
+typedef enum
+{
+    DEFAULT_INT,
+    DEFAULT_STRING
+} default_type_t;
+
 typedef struct
 {
-    char*	name;
-    int*	location;
-    int		defaultvalue;
-    int		scantranslate;		// PC scan code hack
-    int		untranslated;		// lousy hack
+    const char*     name;
+    void*           location;
+    default_type_t  type;
+    int             defaultvalue;
+    const char*     defaultstring;
+    int             scantranslate;          // PC scan code hack
+    int             untranslated;           // lousy hack
 } default_t;
 
-default_t	defaults[] =
+default_t       defaults[] =
 {
-    {"mouse_sensitivity",&mouseSensitivity, 5},
-    {"sfx_volume",&snd_SfxVolume, 8},
-    {"music_volume",&snd_MusicVolume, 8},
-    {"show_messages",&showMessages, 1},
-    
+    {"mouse_sensitivity",&mouseSensitivity, DEFAULT_INT, 5, NULL, 0, 0},
+    {"sfx_volume",&snd_SfxVolume, DEFAULT_INT, 8, NULL, 0, 0},
+    {"music_volume",&snd_MusicVolume, DEFAULT_INT, 8, NULL, 0, 0},
+    {"show_messages",&showMessages, DEFAULT_INT, 1, NULL, 0, 0},
+
 
 #ifdef NORMALUNIX
-    {"key_right",&key_right, KEY_RIGHTARROW},
-    {"key_left",&key_left, KEY_LEFTARROW},
-    {"key_up",&key_up, KEY_UPARROW},
-    {"key_down",&key_down, KEY_DOWNARROW},
-    {"key_strafeleft",&key_strafeleft, ','},
-    {"key_straferight",&key_straferight, '.'},
+    {"key_right",&key_right, DEFAULT_INT, KEY_RIGHTARROW, NULL, 0, 0},
+    {"key_left",&key_left, DEFAULT_INT, KEY_LEFTARROW, NULL, 0, 0},
+    {"key_up",&key_up, DEFAULT_INT, KEY_UPARROW, NULL, 0, 0},
+    {"key_down",&key_down, DEFAULT_INT, KEY_DOWNARROW, NULL, 0, 0},
+    {"key_strafeleft",&key_strafeleft, DEFAULT_INT, ',', NULL, 0, 0},
+    {"key_straferight",&key_straferight, DEFAULT_INT, '.', NULL, 0, 0},
 
-    {"key_fire",&key_fire, KEY_RCTRL},
-    {"key_use",&key_use, ' '},
-    {"key_strafe",&key_strafe, KEY_RALT},
-    {"key_speed",&key_speed, KEY_RSHIFT},
+    {"key_fire",&key_fire, DEFAULT_INT, KEY_RCTRL, NULL, 0, 0},
+    {"key_use",&key_use, DEFAULT_INT, ' ', NULL, 0, 0},
+    {"key_strafe",&key_strafe, DEFAULT_INT, KEY_RALT, NULL, 0, 0},
+    {"key_speed",&key_speed, DEFAULT_INT, KEY_RSHIFT, NULL, 0, 0},
 
-// UNIX hack, to be removed. 
+// UNIX hack, to be removed.
 #ifdef SNDSERV
-    {"sndserver", (int *) &sndserver_filename, (int) "sndserver"},
-    {"mb_used", &mb_used, 2},
+    {"sndserver", &sndserver_filename, DEFAULT_STRING, 0, "sndserver", 0, 0},
+    {"mb_used", &mb_used, DEFAULT_INT, 2, NULL, 0, 0},
 #endif
-    
+
 #endif
 
 #ifdef LINUX
-    {"mousedev", (int*)&mousedev, (int)"/dev/ttyS0"},
-    {"mousetype", (int*)&mousetype, (int)"microsoft"},
+    {"mousedev", &mousedev, DEFAULT_STRING, 0, "/dev/ttyS0", 0, 0},
+    {"mousetype", &mousetype, DEFAULT_STRING, 0, "microsoft", 0, 0},
 #endif
 
-    {"use_mouse",&usemouse, 1},
-    {"mouseb_fire",&mousebfire,0},
-    {"mouseb_strafe",&mousebstrafe,1},
-    {"mouseb_forward",&mousebforward,2},
+    {"use_mouse",&usemouse, DEFAULT_INT, 1, NULL, 0, 0},
+    {"mouseb_fire",&mousebfire, DEFAULT_INT, 0, NULL, 0, 0},
+    {"mouseb_strafe",&mousebstrafe, DEFAULT_INT, 1, NULL, 0, 0},
+    {"mouseb_forward",&mousebforward, DEFAULT_INT, 2, NULL, 0, 0},
 
-    {"use_joystick",&usejoystick, 0},
-    {"joyb_fire",&joybfire,0},
-    {"joyb_strafe",&joybstrafe,1},
-    {"joyb_use",&joybuse,3},
-    {"joyb_speed",&joybspeed,2},
+    {"use_joystick",&usejoystick, DEFAULT_INT, 0, NULL, 0, 0},
+    {"joyb_fire",&joybfire, DEFAULT_INT, 0, NULL, 0, 0},
+    {"joyb_strafe",&joybstrafe, DEFAULT_INT, 1, NULL, 0, 0},
+    {"joyb_use",&joybuse, DEFAULT_INT, 3, NULL, 0, 0},
+    {"joyb_speed",&joybspeed, DEFAULT_INT, 2, NULL, 0, 0},
 
-    {"screenblocks",&screenblocks, 9},
-    {"detaillevel",&detailLevel, 0},
+    {"screenblocks",&screenblocks, DEFAULT_INT, 9, NULL, 0, 0},
+    {"detaillevel",&detailLevel, DEFAULT_INT, 0, NULL, 0, 0},
 
-    {"snd_channels",&numChannels, 3},
+    {"snd_channels",&numChannels, DEFAULT_INT, 3, NULL, 0, 0},
 
 
 
-    {"usegamma",&usegamma, 0},
+    {"usegamma",&usegamma, DEFAULT_INT, 0, NULL, 0, 0},
 
-    {"chatmacro0", (int *) &chat_macros[0], (int) HUSTR_CHATMACRO0 },
-    {"chatmacro1", (int *) &chat_macros[1], (int) HUSTR_CHATMACRO1 },
-    {"chatmacro2", (int *) &chat_macros[2], (int) HUSTR_CHATMACRO2 },
-    {"chatmacro3", (int *) &chat_macros[3], (int) HUSTR_CHATMACRO3 },
-    {"chatmacro4", (int *) &chat_macros[4], (int) HUSTR_CHATMACRO4 },
-    {"chatmacro5", (int *) &chat_macros[5], (int) HUSTR_CHATMACRO5 },
-    {"chatmacro6", (int *) &chat_macros[6], (int) HUSTR_CHATMACRO6 },
-    {"chatmacro7", (int *) &chat_macros[7], (int) HUSTR_CHATMACRO7 },
-    {"chatmacro8", (int *) &chat_macros[8], (int) HUSTR_CHATMACRO8 },
-    {"chatmacro9", (int *) &chat_macros[9], (int) HUSTR_CHATMACRO9 }
+    {"chatmacro0", &chat_macros[0], DEFAULT_STRING, 0, HUSTR_CHATMACRO0 , 0, 0},
+    {"chatmacro1", &chat_macros[1], DEFAULT_STRING, 0, HUSTR_CHATMACRO1 , 0, 0},
+    {"chatmacro2", &chat_macros[2], DEFAULT_STRING, 0, HUSTR_CHATMACRO2 , 0, 0},
+    {"chatmacro3", &chat_macros[3], DEFAULT_STRING, 0, HUSTR_CHATMACRO3 , 0, 0},
+    {"chatmacro4", &chat_macros[4], DEFAULT_STRING, 0, HUSTR_CHATMACRO4 , 0, 0},
+    {"chatmacro5", &chat_macros[5], DEFAULT_STRING, 0, HUSTR_CHATMACRO5 , 0, 0},
+    {"chatmacro6", &chat_macros[6], DEFAULT_STRING, 0, HUSTR_CHATMACRO6 , 0, 0},
+    {"chatmacro7", &chat_macros[7], DEFAULT_STRING, 0, HUSTR_CHATMACRO7 , 0, 0},
+    {"chatmacro8", &chat_macros[8], DEFAULT_STRING, 0, HUSTR_CHATMACRO8 , 0, 0},
+    {"chatmacro9", &chat_macros[9], DEFAULT_STRING, 0, HUSTR_CHATMACRO9 , 0, 0}
 
 };
 
@@ -317,15 +327,16 @@ void M_SaveDefaults (void)
 		
     for (i=0 ; i<numdefaults ; i++)
     {
-	if (defaults[i].defaultvalue > -0xfff
-	    && defaults[i].defaultvalue < 0xfff)
-	{
-	    v = *defaults[i].location;
-	    fprintf (f,"%s\t\t%i\n",defaults[i].name,v);
-	} else {
-	    fprintf (f,"%s\t\t\"%s\"\n",defaults[i].name,
-		     * (char **) (defaults[i].location));
-	}
+        if (defaults[i].type == DEFAULT_INT)
+        {
+            v = *((int *) defaults[i].location);
+            fprintf (f,"%s\t\t%i\n",defaults[i].name,v);
+        }
+        else
+        {
+            fprintf (f,"%s\t\t\"%s\"\n",defaults[i].name,
+                     * (char **) (defaults[i].location));
+        }
     }
 	
     fclose (f);
@@ -351,7 +362,16 @@ void M_LoadDefaults (void)
     // set everything to base values
     numdefaults = sizeof(defaults)/sizeof(defaults[0]);
     for (i=0 ; i<numdefaults ; i++)
-	*defaults[i].location = defaults[i].defaultvalue;
+    {
+        if (defaults[i].type == DEFAULT_INT)
+        {
+            *((int *) defaults[i].location) = defaults[i].defaultvalue;
+        }
+        else if (defaults[i].defaultstring)
+        {
+            *((char **) defaults[i].location) = strdup(defaults[i].defaultstring);
+        }
+    }
     
     // check for a custom default file
     i = M_CheckParm ("-config");
@@ -388,13 +408,12 @@ void M_LoadDefaults (void)
 		for (i=0 ; i<numdefaults ; i++)
 		    if (!strcmp(def, defaults[i].name))
 		    {
-			if (!isstring)
-			    *defaults[i].location = parm;
-			else
-			    *defaults[i].location =
-				(int) newstring;
-			break;
-		    }
+                        if (!isstring)
+                            *((int *) defaults[i].location) = parm;
+                        else
+                            *((char **) defaults[i].location) = newstring;
+                        break;
+                    }
 	    }
 	}
 		
