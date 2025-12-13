@@ -6,7 +6,7 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS ON)
 
-set(VIDEO_BACKEND "SDL2" CACHE STRING "Video backend: SDL2 (Wayland-friendly) or X11 (deprecated)")
+set(VIDEO_BACKEND "SDL2" CACHE STRING "Video backend: SDL2 (default, supports Wayland) or X11 (deprecated)")
 set_property(CACHE VIDEO_BACKEND PROPERTY STRINGS X11 SDL2)
 
 set(NETWORK_BACKEND "BSD" CACHE STRING "Network backend: BSD or SDL_NET")
