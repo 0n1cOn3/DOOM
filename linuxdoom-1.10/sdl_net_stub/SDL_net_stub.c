@@ -66,6 +66,7 @@ UDPsocket SDLNet_UDP_Open(Uint16 port)
     char service[16];
     int fd = -1;
     int yes = 1;
+    int no = 0;
     UDPsocket sock = NULL;
 
     snprintf(service, sizeof(service), "%u", (unsigned)port);
@@ -90,7 +91,7 @@ UDPsocket SDLNet_UDP_Open(Uint16 port)
     }
 
     setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
-    setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &yes, sizeof(yes));
+    setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &no, sizeof(no));
 
     if (bind(fd, result->ai_addr, result->ai_addrlen) < 0)
     {
