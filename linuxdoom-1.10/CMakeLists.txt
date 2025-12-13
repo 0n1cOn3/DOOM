@@ -18,7 +18,7 @@ if(DOOM_USE_SDL2)
       message(WARNING "SDL2 not found; using deprecated X11 backend until Wayland-ready SDL2 is available")
       set(DOOM_USE_SDL2 OFF)
     else()
-      message(FATAL_ERROR "SDL2 is required going forward (X11 backend deprecated in favor of Wayland).\n"
+      message(FATAL_ERROR "SDL2 is required going forward (the old X11 backend is deprecated; SDL2 provides modern multi-platform support, including X11, Wayland, and others).\n"
                           "Re-run with DOOM_ALLOW_DEPRECATED_X11=ON to build the old backend temporarily.")
     endif()
   endif()
