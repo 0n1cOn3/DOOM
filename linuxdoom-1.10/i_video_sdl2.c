@@ -65,6 +65,12 @@ static int sdl_translate_key(SDL_Keycode key)
         case SDLK_EQUALS: return KEY_EQUALS;
         case SDLK_KP_EQUALS: return KEY_EQUALS;
         case SDLK_MINUS: return KEY_MINUS;
+        case SDLK_LSHIFT:
+        case SDLK_RSHIFT: return KEY_RSHIFT;
+        case SDLK_LCTRL:
+        case SDLK_RCTRL: return KEY_RCTRL;
+        case SDLK_LALT:
+        case SDLK_RALT: return KEY_RALT;
         default:
             if (key >= SDLK_SPACE && key <= SDLK_z)
             {
