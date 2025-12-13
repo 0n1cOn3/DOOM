@@ -124,24 +124,35 @@ static boolean ResolveAddressSpec(const char *spec,
 
     if (spec[0] == '[')
     {
+        size_t len;
         endBracket = strchr(spec, ']');
         if (!endBracket)
             return false;
-        strncpy(address, spec + 1, endBracket - spec - 1);
+        len = endBracket - spec - 1;
+        if (len >= sizeof(address))
+            len = sizeof(address) - 1;
+        strncpy(address, spec + 1, len);
+        address[len] = '\0';
         if (endBracket[1] == ':' && endBracket[2] != '\0')
             portText = endBracket + 2;
     }
     else
     {
+        size_t len;
         colon = strrchr(spec, ':');
         if (colon && strchr(colon + 1, ':') == NULL)
         {
             portText = colon + 1;
-            strncpy(address, spec, colon - spec);
+            len = colon - spec;
+            if (len >= sizeof(address))
+                len = sizeof(address) - 1;
+            strncpy(address, spec, len);
+            address[len] = '\0';
         }
         else
         {
             strncpy(address, spec, sizeof(address) - 1);
+            address[sizeof(address) - 1] = '\0';
         }
     }
 
