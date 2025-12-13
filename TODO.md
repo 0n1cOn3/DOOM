@@ -4,15 +4,18 @@ The following tasks must be completed before the SDL2-focused adaptation is cons
 
 ## Build and platform hygiene
 - Collapse duplicate build targets in the root `CMakeLists.txt` and rely on one `add_executable` definition. Ensure options like `VIDEO_BACKEND`/`NETWORK_BACKEND` and `DOOM_USE_SDL2` are consistent and documented.
+- Untangle `linuxdoom-1.10/CMakeLists.txt` so the `linuxdoom` executable is defined once with a single `DOOM_SOURCES` list, conditionally extending it with the chosen video/network backends. Remove the unconditional `find_package(X11 REQUIRED)` call on SDL2 builds and stop linking `SDL2_net_stub` when BSD sockets are requested.
 - Remove unconditional X11 and legacy SDL1 dependencies from the build graph; verify that configuring with `-DVIDEO_BACKEND=SDL2 -DNETWORK_BACKEND=SDL_NET` succeeds without X11 headers.
 - Add sensible feature toggles for optional components (e.g., MIDI, IPv6) and document them in `BUILDING.md`.
 
 ## Video and input
 - Finalize the SDL2-only video path: retire `i_video_x11.c`/`i_video_sdl.c`, keep `i_video_sdl2.c`, and purge X11/SDL1 conditionals from `v_video.c`, `i_video.h`, `g_game.c`, and HUD modules (`st_*`, `hu_*`).
+- Handle SDL2 window events (resize/fullscreen/focus) by recreating textures as needed and preserving aspect ratio via logical sizing or letterboxing instead of stretching to the current window size.
 - Ensure window resizing, fullscreen toggles, and input focus changes are handled uniformly via SDL2 events; audit mouse/keyboard code for parity with the legacy backends.
 
 ## Networking
 - Choose a single maintained backend—SDL_net (`i_net_sdl_net.c`) or BSD sockets (`i_net.c`)—and remove the unused code path from `CMakeLists.txt`.
+- Make `net_harness` honor the selected `NETWORK_BACKEND` instead of always linking the SDL2_net stub; ensure SDL_net is optional when BSD sockets are selected.
 - Align `d_net.c`/`d_net.h` and `net_harness.c` with the chosen API (packet structs, init/teardown), and delete `sdl_net_stub/` if SDL_net becomes mandatory.
 - Add basic latency/packet-loss handling hooks so multiplayer remains stable on modern networks.
 
