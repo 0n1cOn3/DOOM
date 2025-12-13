@@ -19,6 +19,7 @@ This codebase contains the legacy Linux Doom sources with a partially modernized
 
 ## Outstanding work items
 - See `TODO.md` for the full modernization completion checklist. The bullets below remain the top engineering themes.
+- Clean up the current CMake branch confusion: `linuxdoom-1.10/CMakeLists.txt` defines `linuxdoom` twice, requires X11 even when SDL2 is selected, and mixes `DOOM_USE_SDL2`/`VIDEO_BACKEND`/`DOOM_ALLOW_DEPRECATED_X11` in ways that still pull in the deprecated code paths. The SDL_net stub is also linked unconditionally, forcing unwanted dependencies when BSD sockets are chosen. Consolidate the target logic so SDL2 + the selected network backend are the only linked dependencies.
 - Finalize SDL2-only video pipeline: retire `i_video_x11.c`/`i_video_sdl.c`, keep `i_video_sdl2.c`, and remove X11/SDL1 conditionals from `v_video.c`, `i_video.h`, and relevant HUD/game code (e.g., `g_game.c`, `st_*`, `hu_*`). Re-run CMake to ensure X11 is no longer required.
 - Choose and solidify one networking backend: pick SDL_net (`i_net_sdl_net.c`) or BSD sockets (`i_net.c`), remove the unused path from `CMakeLists.txt`, align `d_net.c`/`d_net.h` and `net_harness.c` with the chosen API, and drop the `sdl_net_stub/` directory if SDL_net is mandatory.
 - Unify audio on SDL2 and drop `sndserver`: refactor `i_sound.c`/`i_sound.h` for SDL2 audio only, clean mixing assumptions in `s_sound.c`/`sounds.c`, and ensure CMake links SDL2 audio without legacy OSS/ALSA/X11 flags.
