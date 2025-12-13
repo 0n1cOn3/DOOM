@@ -147,8 +147,10 @@ static void fill_ipaddress(IPaddress *dest, const struct sockaddr *addr, socklen
         dest->port = ntohs(ipv6->sin6_port);
     }
 
-    memcpy(dest->sockaddr, addr, len);
-    dest->sockaddr_len = len;
+    /* Prevent buffer overflow by copying at most sizeof(dest->sockaddr) bytes */
+    size_t copy_len = len < sizeof(dest->sockaddr) ? len : sizeof(dest->sockaddr);
+    memcpy(dest->sockaddr, addr, copy_len);
+    dest->sockaddr_len = copy_len;
 }
 
 int SDLNet_ResolveHost(IPaddress *address, const char *host, Uint16 port)
