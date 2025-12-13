@@ -83,10 +83,14 @@ Licensed under the GNU General Public License 2.0.
 Modern build
 ============
 A CMake-based build is available for modern toolchains and package managers.
-To compile with the default X11 backend, install X11 development headers
-(eg. `libx11-dev` on Debian/Ubuntu) and run:
+The default backend is SDL2 (Wayland-friendly). Install SDL2 development
+headers (eg. `libsdl2-dev` on Debian/Ubuntu) and run:
 
     cmake -S . -B build
     cmake --build build
+
+For legacy environments still on X11, pass `-DVIDEO_BACKEND=X11` after
+installing the X11 development headers. Note that X11 support is deprecated
+and scheduled for removal after December 31, 2025.
 
 The resulting binary is written to `build/bin/linuxdoom`.

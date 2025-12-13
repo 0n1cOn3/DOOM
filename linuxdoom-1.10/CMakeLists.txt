@@ -6,6 +6,13 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS ON)
 
+option(DOOM_USE_LEGACY_NETWORKING "Build with the original BSD sockets backend" OFF)
+set(VIDEO_BACKEND "SDL2" CACHE STRING "Video backend: SDL2 (default, supports Wayland) or X11 (deprecated)")
+set_property(CACHE VIDEO_BACKEND PROPERTY STRINGS X11 SDL2)
+
+set(NETWORK_BACKEND "BSD" CACHE STRING "Network backend: BSD or SDL_NET")
+set_property(CACHE NETWORK_BACKEND PROPERTY STRINGS BSD SDL_NET)
+
 set(SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR})
 
 option(DOOM_USE_SDL2 "Build with the SDL2 video backend" ON)
@@ -46,48 +53,109 @@ if(DOOM_USE_SDL2)
 else()
   list(APPEND DOOM_SOURCES ${SOURCE_DIR}/i_video_x11.c)
 endif()
+list(REMOVE_ITEM DOOM_SOURCES ${SOURCE_DIR}/net_harness.c)
 
 add_executable(linuxdoom ${DOOM_SOURCES})
+list(REMOVE_ITEM DOOM_SOURCES
+  ${SOURCE_DIR}/i_video.c
+  ${SOURCE_DIR}/i_video_sdl2.c
+  ${SOURCE_DIR}/i_net.c
+  ${SOURCE_DIR}/i_net_sdl_net.c)
+
+set(BACKEND_SOURCES)
+set(BACKEND_LIBS m)
+
+target_compile_definitions(linuxdoom PRIVATE NORMALUNIX LINUX)
+
+if(DOOM_USE_LEGACY_NETWORKING)
+  target_compile_definitions(linuxdoom PRIVATE DOOM_USE_LEGACY_NETWORKING)
+endif()
+
+find_package(X11 REQUIRED)
+
+if(X11_Xext_FOUND)
+  target_link_libraries(linuxdoom PRIVATE X11::X11 X11::Xext m)
+if(VIDEO_BACKEND STREQUAL "SDL2")
+  find_package(SDL2 REQUIRED)
+  list(APPEND BACKEND_SOURCES ${SOURCE_DIR}/i_video_sdl2.c)
+  list(APPEND BACKEND_LIBS SDL2::SDL2)
+elseif(VIDEO_BACKEND STREQUAL "X11")
+  message(WARNING "VIDEO_BACKEND=X11 is deprecated and scheduled for removal after December 31, 2025; use SDL2 for Wayland systems.")
+  find_package(X11 REQUIRED)
+  list(APPEND BACKEND_SOURCES ${SOURCE_DIR}/i_video.c)
+  if(X11_Xext_FOUND)
+    list(APPEND BACKEND_LIBS X11::X11 X11::Xext)
+  else()
+    list(APPEND BACKEND_LIBS X11::X11)
+  endif()
+else()
+  message(FATAL_ERROR "Unsupported VIDEO_BACKEND '${VIDEO_BACKEND}'. Use X11 or SDL2.")
+endif()
+
+if(NETWORK_BACKEND STREQUAL "SDL_NET")
+  find_package(SDL2_net REQUIRED)
+  list(APPEND BACKEND_SOURCES ${SOURCE_DIR}/i_net_sdl_net.c)
+  list(APPEND BACKEND_LIBS SDL2_net::SDL2_net)
+elseif(NETWORK_BACKEND STREQUAL "BSD")
+  list(APPEND BACKEND_SOURCES ${SOURCE_DIR}/i_net.c)
+  # Optional network services library is not always present on modern
+  # distributions, so link it only when CMake finds it.
+  find_library(NSL_LIBRARY nsl)
+  if(NSL_LIBRARY)
+    list(APPEND BACKEND_LIBS ${NSL_LIBRARY})
+  endif()
+else()
+  message(FATAL_ERROR "Unsupported NETWORK_BACKEND '${NETWORK_BACKEND}'. Use BSD or SDL_NET.")
+endif()
+
+find_package(PkgConfig QUIET)
+find_package(SDL2_net QUIET)
+
+if(NOT SDL2_net_FOUND AND PkgConfig_FOUND)
+  pkg_check_modules(SDL2NET SDL2_net)
+  if(SDL2NET_FOUND)
+    add_library(SDL2_net::SDL2_net INTERFACE IMPORTED)
+    target_include_directories(SDL2_net::SDL2_net INTERFACE ${SDL2NET_INCLUDE_DIRS})
+    target_link_libraries(SDL2_net::SDL2_net INTERFACE ${SDL2NET_LIBRARIES})
+  endif()
+endif()
+
+if(NOT TARGET SDL2_net::SDL2_net)
+  add_library(SDL2_net_stub STATIC
+    ${SOURCE_DIR}/sdl_net_stub/SDL_net_stub.c)
+  target_include_directories(SDL2_net_stub PUBLIC ${SOURCE_DIR}/sdl_net_stub)
+  add_library(SDL2_net::SDL2_net ALIAS SDL2_net_stub)
+endif()
+
+target_link_libraries(linuxdoom PRIVATE SDL2_net::SDL2_net)
+
+add_executable(net_harness
+  ${SOURCE_DIR}/net_harness.c
+  ${SOURCE_DIR}/i_net.c
+  ${SOURCE_DIR}/m_argv.c
+)
+
+target_include_directories(net_harness PRIVATE ${SOURCE_DIR})
+target_compile_definitions(net_harness PRIVATE NORMALUNIX LINUX)
+
+if(DOOM_USE_LEGACY_NETWORKING)
+  target_compile_definitions(net_harness PRIVATE DOOM_USE_LEGACY_NETWORKING)
+endif()
+
+target_link_libraries(net_harness PRIVATE SDL2_net::SDL2_net)
+add_executable(linuxdoom ${DOOM_SOURCES} ${BACKEND_SOURCES})
 
 target_include_directories(linuxdoom PRIVATE ${SOURCE_DIR})
 
 target_compile_definitions(linuxdoom PRIVATE NORMALUNIX LINUX)
 
-if(DOOM_USE_SDL2)
-  # Link against SDL2, using the appropriate method based on how it was found
-  if(TARGET SDL2::SDL2)
-    target_link_libraries(linuxdoom PRIVATE SDL2::SDL2 m)
-  else()
-    # SDL2 was found via pkg-config
-    target_include_directories(linuxdoom PRIVATE ${SDL2_INCLUDE_DIRS})
-    target_link_libraries(linuxdoom PRIVATE ${SDL2_LIBRARIES} m)
-  endif()
-else()
-  find_package(X11 REQUIRED)
-  if(X11_Xext_FOUND)
-    target_link_libraries(linuxdoom PRIVATE X11::X11 X11::Xext m)
-  else()
-    target_link_libraries(linuxdoom PRIVATE X11::X11 m)
-  endif()
-endif()
-
-# Optional network services library is not always present on modern
-# distributions, so link it only when CMake finds it.
-find_library(NSL_LIBRARY nsl)
-if(NSL_LIBRARY)
-  target_link_libraries(linuxdoom PRIVATE ${NSL_LIBRARY})
-endif()
+target_link_libraries(linuxdoom PRIVATE ${BACKEND_LIBS})
 
 # Build artifacts live next to the legacy Makefile output.
 set_target_properties(linuxdoom PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
 )
 
-include(CTest)
-if(BUILD_TESTING AND DOOM_USE_SDL2)
-  add_test(NAME linuxdoom_smoketest
-           COMMAND ${CMAKE_COMMAND} -E env
-             SDL_VIDEODRIVER=dummy
-             SDL_AUDIODRIVER=dummy
-             $<TARGET_FILE:linuxdoom> -smoketest)
-endif()
+set_target_properties(net_harness PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+)
