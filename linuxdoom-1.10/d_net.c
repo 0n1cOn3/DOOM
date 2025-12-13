@@ -121,7 +121,7 @@ unsigned NetbufferChecksum (void)
     {
         byte tail[4] = {0};
         int offset = aligned * 4;
-        memcpy(tail + (4 - (byteLength % 4)), payload + offset, byteLength % 4);
+        memcpy(tail, payload + offset, byteLength % 4);
         c += SDLNet_Read32(tail) * (aligned + 1);
     }
 
