@@ -5,7 +5,6 @@
 //
 //-----------------------------------------------------------------------------
 
-#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,6 +28,8 @@ static uint32_t palette_table[256];
 
 static int ScreenWidth = SCREENWIDTH;
 static int ScreenHeight = SCREENHEIGHT;
+
+static int mouse_button_state = 0;
 
 static uint8_t scale_palette_value(uint8_t value)
 {
@@ -142,6 +143,7 @@ void I_InitGraphics(void)
     }
 
     SDL_ShowCursor(SDL_DISABLE);
+    SDL_SetRelativeMouseMode(SDL_TRUE);
 }
 
 void I_UpdateNoBlit(void)
@@ -171,11 +173,6 @@ void I_FinishUpdate(void)
     SDL_RenderPresent(renderer);
 }
 
-void I_WaitVBL(int count)
-{
-    SDL_Delay((Uint32)((count * 1000) / 70));
-}
-
 void I_ReadScreen(byte *scr)
 {
     memcpy(scr, screens[0], ScreenWidth * ScreenHeight);
@@ -192,9 +189,6 @@ void I_SetPalette(byte *palette)
         palette_table[i] = (0xFFu << 24) | (r << 16) | (g << 8) | b;
     }
 }
-
-void I_BeginRead(void) {}
-void I_EndRead(void) {}
 
 void I_StartFrame(void)
 {
@@ -224,6 +218,55 @@ void I_StartTic(void)
                     doom_event.data3 = 0;
                     D_PostEvent(&doom_event);
                 }
+                break;
+            }
+            case SDL_MOUSEBUTTONDOWN:
+            {
+                event_t doom_event;
+                doom_event.type = ev_mouse;
+                
+                // Update button state - set the bit for this button
+                if (event.button.button == SDL_BUTTON_LEFT)
+                    mouse_button_state |= 1;
+                else if (event.button.button == SDL_BUTTON_MIDDLE)
+                    mouse_button_state |= 2;
+                else if (event.button.button == SDL_BUTTON_RIGHT)
+                    mouse_button_state |= 4;
+                
+                doom_event.data1 = mouse_button_state;
+                doom_event.data2 = 0;
+                doom_event.data3 = 0;
+                D_PostEvent(&doom_event);
+                break;
+            }
+            case SDL_MOUSEBUTTONUP:
+            {
+                event_t doom_event;
+                doom_event.type = ev_mouse;
+                
+                // Update button state - clear the bit for this button
+                if (event.button.button == SDL_BUTTON_LEFT)
+                    mouse_button_state &= ~1;
+                else if (event.button.button == SDL_BUTTON_MIDDLE)
+                    mouse_button_state &= ~2;
+                else if (event.button.button == SDL_BUTTON_RIGHT)
+                    mouse_button_state &= ~4;
+                
+                doom_event.data1 = mouse_button_state;
+                doom_event.data2 = 0;
+                doom_event.data3 = 0;
+                D_PostEvent(&doom_event);
+                break;
+            }
+            case SDL_MOUSEMOTION:
+            {
+                event_t doom_event;
+                doom_event.type = ev_mouse;
+                doom_event.data1 = mouse_button_state;
+                // Scale mouse movement like X11 backend (shift left by 2)
+                doom_event.data2 = event.motion.xrel << 2;
+                doom_event.data3 = -event.motion.yrel << 2;  // Invert Y axis
+                D_PostEvent(&doom_event);
                 break;
             }
             default:
