@@ -91,6 +91,6 @@ headers (eg. `libsdl2-dev` on Debian/Ubuntu) and run:
 
 For legacy environments still on X11, pass `-DVIDEO_BACKEND=X11` after
 installing the X11 development headers. Note that X11 support is deprecated
-and scheduled for removal after 2025.
+and scheduled for removal after December 31, 2025.
 
 The resulting binary is written to `build/bin/linuxdoom`.
