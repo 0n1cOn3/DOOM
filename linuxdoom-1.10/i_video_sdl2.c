@@ -220,7 +220,7 @@ void I_StartTic(void)
                     event_t doom_event;
                     doom_event.type = (event.type == SDL_KEYDOWN) ? ev_keydown : ev_keyup;
                     doom_event.data1 = key;
-                    doom_event.data2 = event.key.keysym.scancode;
+                    doom_event.data2 = 0;
                     doom_event.data3 = 0;
                     D_PostEvent(&doom_event);
                 }
