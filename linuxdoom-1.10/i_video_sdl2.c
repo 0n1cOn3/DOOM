@@ -198,7 +198,7 @@ void I_EndRead(void) {}
 
 void I_StartFrame(void)
 {
-    SDL_PumpEvents();
+    // SDL_PumpEvents() is not needed here because SDL_PollEvent() in I_StartTic() already pumps events.
 }
 
 void I_StartTic(void)
