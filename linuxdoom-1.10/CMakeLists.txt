@@ -14,12 +14,21 @@ option(DOOM_ALLOW_DEPRECATED_X11 "Allow the deprecated X11 backend when SDL2 is 
 if(DOOM_USE_SDL2)
   find_package(SDL2 QUIET)
   if(NOT SDL2_FOUND)
-    if(DOOM_ALLOW_DEPRECATED_X11)
-      message(WARNING "SDL2 not found; using deprecated X11 backend until Wayland-ready SDL2 is available")
-      set(DOOM_USE_SDL2 OFF)
-    else()
-      message(FATAL_ERROR "SDL2 is required going forward (the old X11 backend is deprecated; SDL2 provides modern multi-platform support, including X11, Wayland, and others).\n"
-                          "Re-run with DOOM_ALLOW_DEPRECATED_X11=ON to build the old backend temporarily.")
+    # Try pkg-config as a fallback. Unlike find_package, pkg-config sets
+    # SDL2_LIBRARIES and SDL2_INCLUDE_DIRS instead of creating SDL2::SDL2 target
+    find_package(PkgConfig QUIET)
+    if(PkgConfig_FOUND)
+      pkg_check_modules(SDL2 QUIET sdl2)
+    endif()
+
+    if(NOT SDL2_FOUND)
+      if(DOOM_ALLOW_DEPRECATED_X11)
+        message(WARNING "SDL2 not found; using deprecated X11 backend until Wayland-ready SDL2 is available")
+        set(DOOM_USE_SDL2 OFF)
+      else()
+        message(FATAL_ERROR "SDL2 is required going forward (the old X11 backend is deprecated; SDL2 provides modern multi-platform support, including X11, Wayland, and others).\n"
+                            "Re-run with DOOM_ALLOW_DEPRECATED_X11=ON to build the old backend temporarily.")
+      endif()
     endif()
   endif()
 endif()
@@ -45,13 +54,13 @@ target_include_directories(linuxdoom PRIVATE ${SOURCE_DIR})
 target_compile_definitions(linuxdoom PRIVATE NORMALUNIX LINUX)
 
 if(DOOM_USE_SDL2)
-  if(NOT SDL2_FOUND)
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(SDL2 REQUIRED sdl2)
+  # Link against SDL2, using the appropriate method based on how it was found
+  if(TARGET SDL2::SDL2)
+    target_link_libraries(linuxdoom PRIVATE SDL2::SDL2 m)
+  else()
+    # SDL2 was found via pkg-config
     target_include_directories(linuxdoom PRIVATE ${SDL2_INCLUDE_DIRS})
     target_link_libraries(linuxdoom PRIVATE ${SDL2_LIBRARIES} m)
-  else()
-    target_link_libraries(linuxdoom PRIVATE SDL2::SDL2 m)
   endif()
 else()
   find_package(X11 REQUIRED)
