@@ -298,7 +298,7 @@ void I_FinishUpdate (void)
         int tics = I_GetTime() - lasttic;
         int i;
 
-        lasttic += tics;
+        lasttic = I_GetTime();
         if (tics > 20)
             tics = 20;
 
