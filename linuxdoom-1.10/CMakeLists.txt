@@ -14,9 +14,45 @@ set(NETWORK_BACKEND "BSD" CACHE STRING "Network backend: BSD or SDL_NET")
 set_property(CACHE NETWORK_BACKEND PROPERTY STRINGS BSD SDL_NET)
 
 set(SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR})
+
+option(DOOM_USE_SDL2 "Build with the SDL2 video backend" ON)
+option(DOOM_ALLOW_DEPRECATED_X11 "Allow the deprecated X11 backend when SDL2 is missing" OFF)
+
+if(DOOM_USE_SDL2)
+  find_package(SDL2 QUIET)
+  if(NOT SDL2_FOUND)
+    # Try pkg-config as a fallback. Unlike find_package, pkg-config sets
+    # SDL2_LIBRARIES and SDL2_INCLUDE_DIRS instead of creating SDL2::SDL2 target
+    find_package(PkgConfig QUIET)
+    if(PkgConfig_FOUND)
+      pkg_check_modules(SDL2 QUIET sdl2)
+    endif()
+
+    if(NOT SDL2_FOUND)
+      if(DOOM_ALLOW_DEPRECATED_X11)
+        message(WARNING "SDL2 not found; using deprecated X11 backend until Wayland-ready SDL2 is available")
+        set(DOOM_USE_SDL2 OFF)
+      else()
+        message(FATAL_ERROR "SDL2 is required going forward (the old X11 backend is deprecated; SDL2 provides modern multi-platform support, including X11, Wayland, and others).\n"
+                            "Re-run with DOOM_ALLOW_DEPRECATED_X11=ON to build the old backend temporarily.")
+      endif()
+    endif()
+  endif()
+endif()
+
 file(GLOB DOOM_SOURCES
     ${SOURCE_DIR}/*.c)
 
+list(REMOVE_ITEM DOOM_SOURCES
+    ${SOURCE_DIR}/i_video.c
+    ${SOURCE_DIR}/i_video_sdl.c
+    ${SOURCE_DIR}/i_video_x11.c)
+
+if(DOOM_USE_SDL2)
+  list(APPEND DOOM_SOURCES ${SOURCE_DIR}/i_video_sdl.c)
+else()
+  list(APPEND DOOM_SOURCES ${SOURCE_DIR}/i_video_x11.c)
+endif()
 list(REMOVE_ITEM DOOM_SOURCES ${SOURCE_DIR}/net_harness.c)
 
 add_executable(linuxdoom ${DOOM_SOURCES})

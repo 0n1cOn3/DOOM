@@ -96,6 +96,7 @@ boolean		devparm;	// started game with -devparm
 boolean         nomonsters;	// checkparm of -nomonsters
 boolean         respawnparm;	// checkparm of -respawn
 boolean         fastparm;	// checkparm of -fast
+boolean         smoketest;      // checkparm of -smoketest
 
 boolean         drone;
 
@@ -809,6 +810,7 @@ void D_DoomMain (void)
     respawnparm = M_CheckParm ("-respawn");
     fastparm = M_CheckParm ("-fast");
     devparm = M_CheckParm ("-devparm");
+    smoketest = M_CheckParm ("-smoketest");
     if (M_CheckParm ("-altdeath"))
 	deathmatch = 2;
     else if (M_CheckParm ("-deathmatch"))
@@ -1016,6 +1018,17 @@ void D_DoomMain (void)
 
     printf ("Z_Init: Init zone memory allocation daemon. \n");
     Z_Init ();
+
+    if (smoketest)
+    {
+        printf("Running SDL smoke test...\n");
+        I_InitGraphics();
+        I_StartFrame();
+        I_StartTic();
+        I_FinishUpdate();
+        I_ShutdownGraphics();
+        return;
+    }
 
     printf ("W_Init: Init WADfiles.\n");
     W_InitMultipleFiles (wadfiles);
