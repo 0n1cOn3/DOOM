@@ -26,6 +26,8 @@
 static const char rcsid[] = "$Id: d_net.c,v 1.3 1997/02/03 22:01:47 b1 Exp $";
 
 
+#include <SDL_net.h>
+
 #include "m_menu.h"
 #include "i_system.h"
 #include "i_video.h"
@@ -97,19 +99,31 @@ int NetbufferSize (void)
 //
 unsigned NetbufferChecksum (void)
 {
-    unsigned		c;
-    int		i,l;
+    unsigned            c;
+    int                 i;
+    int                 byteLength;
+    int                 aligned;
+    doomdata_t          wire;
+    const byte         *payload;
 
     c = 0x1234567;
 
-    // FIXME -endianess?
-#ifdef NORMALUNIX
-    return 0;			// byte order problems
-#endif
+    I_NetPackBuffer(netbuffer, &wire);
 
-    l = (NetbufferSize () - (int)&(((doomdata_t *)0)->retransmitfrom))/4;
-    for (i=0 ; i<l ; i++)
-	c += ((unsigned *)&netbuffer->retransmitfrom)[i] * (i+1);
+    byteLength = NetbufferSize () - (int)&(((doomdata_t *)0)->retransmitfrom);
+    payload = (const byte *)&wire.retransmitfrom;
+    aligned = byteLength / 4;
+
+    for (i=0 ; i<aligned ; i++)
+        c += SDLNet_Read32(payload + i * 4) * (i+1);
+
+    if (byteLength % 4)
+    {
+        byte tail[4] = {0};
+        int offset = aligned * 4;
+        memcpy(tail + (4 - (byteLength % 4)), payload + offset, byteLength % 4);
+        c += SDLNet_Read32(tail) * (aligned + 1);
+    }
 
     return c & NCMD_CHECKSUM;
 }

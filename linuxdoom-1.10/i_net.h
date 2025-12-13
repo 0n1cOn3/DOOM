@@ -28,13 +28,20 @@
 #pragma interface
 #endif
 
-
+#include "d_net.h"
 
 // Called by D_DoomMain.
 
 
 void I_InitNetwork (void);
 void I_NetCmd (void);
+
+// Shared helpers for packing and unpacking network payloads.
+void I_NetPackBuffer(const doomdata_t *src, doomdata_t *dest);
+void I_NetUnpackBuffer(const doomdata_t *src, doomdata_t *dest);
+
+// Simple regression harness entry point.
+int I_RunNetworkHarness(int argc, char **argv);
 
 
 #endif
