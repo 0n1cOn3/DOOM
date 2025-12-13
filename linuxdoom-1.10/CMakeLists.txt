@@ -7,8 +7,36 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS ON)
 
 set(SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR})
+
+option(DOOM_USE_SDL2 "Build with the SDL2 video backend" ON)
+option(DOOM_ALLOW_DEPRECATED_X11 "Allow the deprecated X11 backend when SDL2 is missing" OFF)
+
+if(DOOM_USE_SDL2)
+  find_package(SDL2 QUIET)
+  if(NOT SDL2_FOUND)
+    if(DOOM_ALLOW_DEPRECATED_X11)
+      message(WARNING "SDL2 not found; using deprecated X11 backend until Wayland-ready SDL2 is available")
+      set(DOOM_USE_SDL2 OFF)
+    else()
+      message(FATAL_ERROR "SDL2 is required going forward (X11 backend deprecated in favor of Wayland).\n"
+                          "Re-run with DOOM_ALLOW_DEPRECATED_X11=ON to build the old backend temporarily.")
+    endif()
+  endif()
+endif()
+
 file(GLOB DOOM_SOURCES
     ${SOURCE_DIR}/*.c)
+
+list(REMOVE_ITEM DOOM_SOURCES
+    ${SOURCE_DIR}/i_video.c
+    ${SOURCE_DIR}/i_video_sdl.c
+    ${SOURCE_DIR}/i_video_x11.c)
+
+if(DOOM_USE_SDL2)
+  list(APPEND DOOM_SOURCES ${SOURCE_DIR}/i_video_sdl.c)
+else()
+  list(APPEND DOOM_SOURCES ${SOURCE_DIR}/i_video_x11.c)
+endif()
 
 add_executable(linuxdoom ${DOOM_SOURCES})
 
@@ -16,12 +44,22 @@ target_include_directories(linuxdoom PRIVATE ${SOURCE_DIR})
 
 target_compile_definitions(linuxdoom PRIVATE NORMALUNIX LINUX)
 
-find_package(X11 REQUIRED)
-
-if(X11_Xext_FOUND)
-  target_link_libraries(linuxdoom PRIVATE X11::X11 X11::Xext m)
+if(DOOM_USE_SDL2)
+  if(NOT SDL2_FOUND)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(SDL2 REQUIRED sdl2)
+    target_include_directories(linuxdoom PRIVATE ${SDL2_INCLUDE_DIRS})
+    target_link_libraries(linuxdoom PRIVATE ${SDL2_LIBRARIES} m)
+  else()
+    target_link_libraries(linuxdoom PRIVATE SDL2::SDL2 m)
+  endif()
 else()
-  target_link_libraries(linuxdoom PRIVATE X11::X11 m)
+  find_package(X11 REQUIRED)
+  if(X11_Xext_FOUND)
+    target_link_libraries(linuxdoom PRIVATE X11::X11 X11::Xext m)
+  else()
+    target_link_libraries(linuxdoom PRIVATE X11::X11 m)
+  endif()
 endif()
 
 # Optional network services library is not always present on modern
@@ -35,3 +73,12 @@ endif()
 set_target_properties(linuxdoom PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
 )
+
+include(CTest)
+if(BUILD_TESTING AND DOOM_USE_SDL2)
+  add_test(NAME linuxdoom_smoketest
+           COMMAND ${CMAKE_COMMAND} -E env
+             SDL_VIDEODRIVER=dummy
+             SDL_AUDIODRIVER=dummy
+             $<TARGET_FILE:linuxdoom> -smoketest)
+endif()
