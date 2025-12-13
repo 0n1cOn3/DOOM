@@ -75,9 +75,10 @@ UDPsocket SDLNet_UDP_Open(Uint16 port)
     hints.ai_protocol = IPPROTO_UDP;
     hints.ai_flags = AI_PASSIVE;
 
-    if (getaddrinfo(NULL, service, &hints, &result) != 0)
+    int ret = getaddrinfo(NULL, service, &hints, &result);
+    if (ret != 0)
     {
-        set_error("SDLNet_UDP_Open getaddrinfo failed: %s", strerror(errno));
+        set_error("SDLNet_UDP_Open getaddrinfo failed: %s", gai_strerror(ret));
         return NULL;
     }
 
