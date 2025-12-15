@@ -66,8 +66,13 @@ void    (*netsend) (void);
 
 typedef uint16_t doom_port_t;
 
+// Network simulation variables for testing/debugging.
+// -netdelay <ms>: Add latency to outgoing packets (max 2000ms)
+// -packetloss <percent>: Randomly drop packets (0-99%)
 static int net_latency_ms = 0;
 static int net_packet_loss = 0;
+// Thread-safe RNG seed for network simulation
+static unsigned int net_rng_seed = 0;
 
 static int ParsePositiveIntArg(const char *text, int upperBound, int fallback)
 {
@@ -94,7 +99,7 @@ static void InitNetworkSimulation(void)
 
     if (!seeded)
     {
-        srand((unsigned int)time(NULL));
+        net_rng_seed = (unsigned int)time(NULL);
         seeded = true;
     }
 
@@ -107,12 +112,15 @@ static void InitNetworkSimulation(void)
         net_packet_loss = ParsePositiveIntArg(myargv[p + 1], 99, 0);
 }
 
+// Thread-safe packet drop simulation using rand_r().
+// Note: This is for testing/debugging only. The random number
+// generation is not cryptographically secure.
 static boolean ShouldDropPacket(void)
 {
     if (net_packet_loss <= 0)
         return false;
 
-    return (rand() % 100) < net_packet_loss;
+    return (rand_r(&net_rng_seed) % 100) < net_packet_loss;
 }
 
 static void ApplyNetworkLatency(void)
