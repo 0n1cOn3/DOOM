@@ -466,8 +466,11 @@ void I_ShutdownNetwork(void)
 
     SDLNet_Quit();
 
-    free(doomcom);
-    doomcom = NULL;
+    if (doomcom)
+    {
+        free(doomcom);
+        doomcom = NULL;
+    }
     netbuffer = NULL;
 }
 
