@@ -492,7 +492,7 @@ int I_RunNetworkHarness(int argc, char **argv)
 {
     doomdata_t expected;
     int attempts;
-    char *defaultArgs[] = { "net_harness", "-net", "1", "[::1]" };
+    static char *defaultArgs[] = { "net_harness", "-net", "1", "[::1]" };
 
     if (argc < 4)
     {
@@ -805,7 +805,7 @@ int I_RunNetworkHarness(int argc, char **argv)
 {
     doomdata_t expected;
     int attempts;
-    char *defaultArgs[] = { "net_harness", "-net", "1", "127.0.0.1" };
+    static char *defaultArgs[] = { "net_harness", "-net", "1", "127.0.0.1" };
 
     if (argc < 4)
     {
