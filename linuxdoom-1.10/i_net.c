@@ -776,9 +776,12 @@ void I_ShutdownNetwork(void)
         sendsocket = 0;
     }
 
-    free(doomcom);
-    doomcom = NULL;
-    netbuffer = NULL;
+    if (doomcom != NULL)
+    {
+        free(doomcom);
+        doomcom = NULL;
+        netbuffer = NULL;
+    }
 }
 
 void I_NetCmd (void)
