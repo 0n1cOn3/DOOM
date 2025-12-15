@@ -26,7 +26,26 @@
 static const char rcsid[] = "$Id: d_net.c,v 1.3 1997/02/03 22:01:47 b1 Exp $";
 
 
+#include <stdint.h>
+#include <string.h>
+
+#ifndef DOOM_USE_LEGACY_NETWORKING
 #include <SDL_net.h>
+#else
+#include <arpa/inet.h>
+#endif
+
+static uint32_t ReadNetUint32(const void *src)
+{
+#ifndef DOOM_USE_LEGACY_NETWORKING
+    return SDLNet_Read32(src);
+#else
+    uint32_t word;
+    // Use memcpy to safely copy from potentially unaligned memory and avoid strict aliasing violations.
+    memcpy(&word, src, sizeof(word));
+    return ntohl(word);
+#endif
+}
 
 #include "m_menu.h"
 #include "i_system.h"
@@ -115,14 +134,14 @@ unsigned NetbufferChecksum (void)
     aligned = byteLength / 4;
 
     for (i=0 ; i<aligned ; i++)
-        c += SDLNet_Read32(payload + i * 4) * (i+1);
+        c += ReadNetUint32(payload + i * 4) * (i+1);
 
     if (byteLength % 4)
     {
         byte tail[4] = {0};
         int offset = aligned * 4;
         memcpy(tail, payload + offset, byteLength % 4);
-        c += SDLNet_Read32(tail) * (aligned + 1);
+        c += ReadNetUint32(tail) * (aligned + 1);
     }
 
     return c & NCMD_CHECKSUM;
