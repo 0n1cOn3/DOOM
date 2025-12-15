@@ -92,6 +92,10 @@ static int ParsePositiveIntArg(const char *text, int upperBound, int fallback)
     return (int)value;
 }
 
+// Initialize network simulation parameters from command-line arguments.
+// Note: This function is called during single-threaded startup from I_InitNetwork().
+// The RNG seed initialization is not protected by a mutex as DOOM's initialization
+// is single-threaded. However, ShouldDropPacket() uses rand_r() which is thread-safe.
 static void InitNetworkSimulation(void)
 {
     static boolean seeded = false;
