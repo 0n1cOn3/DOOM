@@ -25,6 +25,7 @@ rcsid[] = "$Id: m_bbox.c,v 1.1 1997/02/03 22:45:10 b1 Exp $";
 
 #include <errno.h>
 #include <netinet/in.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -516,7 +517,7 @@ int I_RunNetworkHarness(int argc, char **argv)
     expected.cmds[0].angleturn = 0x3456;
     expected.cmds[0].consistancy = 0x1234;
     expected.cmds[0].buttons = 0xAA;
-    doomcom->datalength = (int)&(((doomdata_t *)0)->cmds[expected.numtics]);
+    doomcom->datalength = offsetof(doomdata_t, cmds[expected.numtics]);
 
     *netbuffer = expected;
     doomcom->remotenode = 1;
@@ -829,7 +830,7 @@ int I_RunNetworkHarness(int argc, char **argv)
     expected.cmds[0].angleturn = 0x3456;
     expected.cmds[0].consistancy = 0x1234;
     expected.cmds[0].buttons = 0xAA;
-    doomcom->datalength = (int)&(((doomdata_t *)0)->cmds[expected.numtics]);
+    doomcom->datalength = offsetof(doomdata_t, cmds[expected.numtics]);
 
     *netbuffer = expected;
     doomcom->remotenode = 1;
