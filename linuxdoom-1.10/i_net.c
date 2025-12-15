@@ -166,14 +166,18 @@ static netorder_16 NetWrite16(uint16_t value)
     return htons(value);
 }
 
-static uint32_t NetRead32(const netorder_32 *value)
+static uint32_t NetRead32(const void *value)
 {
-    return ntohl(*value);
+    uint32_t word;
+    memcpy(&word, value, sizeof(word));
+    return ntohl(word);
 }
 
-static uint16_t NetRead16(const netorder_16 *value)
+static uint16_t NetRead16(const void *value)
 {
-    return ntohs(*value);
+    uint16_t half;
+    memcpy(&half, value, sizeof(half));
+    return ntohs(half);
 }
 #endif
 
@@ -196,12 +200,12 @@ void I_NetUnpackBuffer(const doomdata_t *src, doomdata_t *dest)
     int c;
 
     *dest = *src;
-    dest->checksum = NetRead32((const netorder_32 *)&src->checksum);
+    dest->checksum = NetRead32(&src->checksum);
 
     for (c = 0; c < dest->numtics; ++c)
     {
-        dest->cmds[c].angleturn = NetRead16((const netorder_16 *)&src->cmds[c].angleturn);
-        dest->cmds[c].consistancy = NetRead16((const netorder_16 *)&src->cmds[c].consistancy);
+        dest->cmds[c].angleturn = NetRead16(&src->cmds[c].angleturn);
+        dest->cmds[c].consistancy = NetRead16(&src->cmds[c].consistancy);
     }
 }
 
