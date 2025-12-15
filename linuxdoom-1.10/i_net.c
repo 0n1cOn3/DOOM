@@ -545,7 +545,18 @@ int I_RunNetworkHarness(int argc, char **argv)
     expected.cmds[0].angleturn = 0x3456;
     expected.cmds[0].consistancy = 0x1234;
     expected.cmds[0].buttons = 0xAA;
-    doomcom->datalength = offsetof(doomdata_t, cmds) + expected.numtics * sizeof(ticcmd_t);
+    {
+        size_t numtics = (size_t)expected.numtics;
+        size_t data_size = offsetof(doomdata_t, cmds) + numtics * sizeof(ticcmd_t);
+        /* Check for overflow: data_size must fit in doomcom->datalength (assumed int) */
+        if (numtics > INT32_MAX / sizeof(ticcmd_t) ||
+            data_size > INT32_MAX) {
+            fprintf(stderr, "Error: numtics too large, potential overflow in data_size calculation\n");
+            doomcom->datalength = 0;
+        } else {
+            doomcom->datalength = (int)data_size;
+        }
+    }
 
     *netbuffer = expected;
     doomcom->remotenode = 1;
