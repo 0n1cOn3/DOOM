@@ -517,7 +517,7 @@ int I_RunNetworkHarness(int argc, char **argv)
     expected.cmds[0].angleturn = 0x3456;
     expected.cmds[0].consistancy = 0x1234;
     expected.cmds[0].buttons = 0xAA;
-    doomcom->datalength = offsetof(doomdata_t, cmds[expected.numtics]);
+    doomcom->datalength = offsetof(doomdata_t, cmds) + expected.numtics * sizeof(ticcmd_t);
 
     *netbuffer = expected;
     doomcom->remotenode = 1;
@@ -830,7 +830,7 @@ int I_RunNetworkHarness(int argc, char **argv)
     expected.cmds[0].angleturn = 0x3456;
     expected.cmds[0].consistancy = 0x1234;
     expected.cmds[0].buttons = 0xAA;
-    doomcom->datalength = offsetof(doomdata_t, cmds[expected.numtics]);
+    doomcom->datalength = offsetof(doomdata_t, cmds) + expected.numtics * sizeof(ticcmd_t);
 
     *netbuffer = expected;
     doomcom->remotenode = 1;
