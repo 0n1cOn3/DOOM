@@ -120,7 +120,7 @@ static void ApplyNetworkLatency(void)
     if (net_latency_ms <= 0)
         return;
 
-    usleep(net_latency_ms * 1000);
+    usleep((unsigned long)net_latency_ms * 1000);
 }
 
 #ifndef DOOM_USE_LEGACY_NETWORKING
