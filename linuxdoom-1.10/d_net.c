@@ -41,6 +41,7 @@ static uint32_t ReadNetUint32(const void *src)
     return SDLNet_Read32(src);
 #else
     uint32_t word;
+    // Use memcpy to safely copy from potentially unaligned memory and avoid strict aliasing violations.
     memcpy(&word, src, sizeof(word));
     return ntohl(word);
 #endif
