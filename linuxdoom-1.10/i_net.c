@@ -25,13 +25,22 @@ rcsid[] = "$Id: m_bbox.c,v 1.1 1997/02/03 22:45:10 b1 Exp $";
 
 #include <errno.h>
 #include <netinet/in.h>
+#include <stdint.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <time.h>
 
+#ifndef DOOM_USE_LEGACY_NETWORKING
 #include <SDL_net.h>
+#else
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#endif
 
 #include "i_system.h"
 #include "d_event.h"
@@ -55,19 +64,130 @@ static void NetListenThunk(void);
 void    (*netget) (void);
 void    (*netsend) (void);
 
-static Uint16 doomport = DOOM_DEFAULT_PORT;
+typedef uint16_t doom_port_t;
+
+static int net_latency_ms = 0;
+static int net_packet_loss = 0;
+
+static int ParsePositiveIntArg(const char *text, int upperBound, int fallback)
+{
+    char *end = NULL;
+    long value;
+
+    if (!text || !*text)
+        return fallback;
+
+    value = strtol(text, &end, 10);
+    if (end == text || value <= 0)
+        return fallback;
+
+    if (upperBound > 0 && value > upperBound)
+        value = upperBound;
+
+    return (int)value;
+}
+
+static void InitNetworkSimulation(void)
+{
+    static boolean seeded = false;
+    int p;
+
+    if (!seeded)
+    {
+        srand((unsigned int)time(NULL));
+        seeded = true;
+    }
+
+    p = M_CheckParm("-netdelay");
+    if (p && p < myargc - 1)
+        net_latency_ms = ParsePositiveIntArg(myargv[p + 1], 2000, 0);
+
+    p = M_CheckParm("-packetloss");
+    if (p && p < myargc - 1)
+        net_packet_loss = ParsePositiveIntArg(myargv[p + 1], 99, 0);
+}
+
+static boolean ShouldDropPacket(void)
+{
+    if (net_packet_loss <= 0)
+        return false;
+
+    return (rand() % 100) < net_packet_loss;
+}
+
+static void ApplyNetworkLatency(void)
+{
+    if (net_latency_ms <= 0)
+        return;
+
+    usleep(net_latency_ms * 1000);
+}
+
+#ifndef DOOM_USE_LEGACY_NETWORKING
+typedef Uint16 netorder_16;
+typedef Uint32 netorder_32;
+static doom_port_t doomport = DOOM_DEFAULT_PORT;
+
+static netorder_32 NetWrite32(uint32_t value)
+{
+    netorder_32 encoded;
+    SDLNet_Write32(value, &encoded);
+    return encoded;
+}
+
+static netorder_16 NetWrite16(uint16_t value)
+{
+    netorder_16 encoded;
+    SDLNet_Write16(value, &encoded);
+    return encoded;
+}
+
+static uint32_t NetRead32(const netorder_32 *value)
+{
+    return SDLNet_Read32(value);
+}
+
+static uint16_t NetRead16(const netorder_16 *value)
+{
+    return SDLNet_Read16(value);
+}
+#else
+typedef uint16_t netorder_16;
+typedef uint32_t netorder_32;
+static doom_port_t doomport = DOOM_DEFAULT_PORT;
+
+static netorder_32 NetWrite32(uint32_t value)
+{
+    return htonl(value);
+}
+
+static netorder_16 NetWrite16(uint16_t value)
+{
+    return htons(value);
+}
+
+static uint32_t NetRead32(const netorder_32 *value)
+{
+    return ntohl(*value);
+}
+
+static uint16_t NetRead16(const netorder_16 *value)
+{
+    return ntohs(*value);
+}
+#endif
 
 void I_NetPackBuffer(const doomdata_t *src, doomdata_t *dest)
 {
     int c;
 
     *dest = *src;
-    SDLNet_Write32(src->checksum, &dest->checksum);
+    dest->checksum = NetWrite32(src->checksum);
 
     for (c = 0; c < src->numtics; ++c)
     {
-        SDLNet_Write16(src->cmds[c].angleturn, &dest->cmds[c].angleturn);
-        SDLNet_Write16(src->cmds[c].consistancy, &dest->cmds[c].consistancy);
+        dest->cmds[c].angleturn = NetWrite16(src->cmds[c].angleturn);
+        dest->cmds[c].consistancy = NetWrite16(src->cmds[c].consistancy);
     }
 }
 
@@ -76,12 +196,12 @@ void I_NetUnpackBuffer(const doomdata_t *src, doomdata_t *dest)
     int c;
 
     *dest = *src;
-    dest->checksum = SDLNet_Read32(&src->checksum);
+    dest->checksum = NetRead32((const netorder_32 *)&src->checksum);
 
     for (c = 0; c < dest->numtics; ++c)
     {
-        dest->cmds[c].angleturn = SDLNet_Read16(&src->cmds[c].angleturn);
-        dest->cmds[c].consistancy = SDLNet_Read16(&src->cmds[c].consistancy);
+        dest->cmds[c].angleturn = NetRead16((const netorder_16 *)&src->cmds[c].angleturn);
+        dest->cmds[c].consistancy = NetRead16((const netorder_16 *)&src->cmds[c].consistancy);
     }
 }
 
@@ -92,7 +212,7 @@ static UDPpacket            *recvpacket;
 static UDPpacket            *sendpacket;
 static IPaddress             sendaddress[MAXNETNODES];
 
-static Uint16 ParsePort(const char *text, Uint16 fallback)
+static doom_port_t ParsePort(const char *text, doom_port_t fallback)
 {
     char *end = NULL;
     long value;
@@ -190,6 +310,11 @@ void NetSend (void)
     doomdata_t wire;
     int length = doomcom->datalength;
 
+    if (ShouldDropPacket())
+        return;
+
+    ApplyNetworkLatency();
+
     EnsurePacketCapacity(length);
     I_NetPackBuffer(netbuffer, &wire);
 
@@ -213,6 +338,11 @@ boolean NetListen (void)
 
     if (SDLNet_UDP_Recv(udpsocket, recvpacket) <= 0)
         return false;
+
+    if (ShouldDropPacket())
+        return false;
+
+    ApplyNetworkLatency();
 
     for (i = 0; i < doomcom->numnodes; ++i)
     {
@@ -249,6 +379,8 @@ void I_InitNetwork (void)
 
     if (SDLNet_Init() == -1)
         I_Error("SDLNet_Init failed: %s", SDLNet_GetError());
+
+    InitNetworkSimulation();
 
     i = M_CheckParm ("-dup");
     if (i && i< myargc-1)
@@ -312,6 +444,33 @@ void I_InitNetwork (void)
     netbuffer = &doomcom->data;
 }
 
+void I_ShutdownNetwork(void)
+{
+    if (recvpacket)
+    {
+        SDLNet_FreePacket(recvpacket);
+        recvpacket = NULL;
+    }
+
+    if (sendpacket)
+    {
+        SDLNet_FreePacket(sendpacket);
+        sendpacket = NULL;
+    }
+
+    if (udpsocket)
+    {
+        SDLNet_UDP_Close(udpsocket);
+        udpsocket = NULL;
+    }
+
+    SDLNet_Quit();
+
+    free(doomcom);
+    doomcom = NULL;
+    netbuffer = NULL;
+}
+
 void I_NetCmd (void)
 {
     if (doomcom->command == CMD_SEND)
@@ -370,26 +529,23 @@ int I_RunNetworkHarness(int argc, char **argv)
     if (doomcom->remotenode != 1)
     {
         fprintf(stderr, "Failed to receive loopback packet\n");
+        I_ShutdownNetwork();
         return 1;
     }
 
     if (memcmp(netbuffer, &expected, doomcom->datalength) != 0)
     {
         fprintf(stderr, "Loopback packet mismatch\n");
+        I_ShutdownNetwork();
         return 2;
     }
 
     printf("Network harness succeeded with %d attempts\n", attempts + 1);
+    I_ShutdownNetwork();
     return 0;
 }
 
 #else
-
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <sys/ioctl.h>
 
 int     DOOMPORT =      (IPPORT_USERRESERVED +0x1d );
 
@@ -432,6 +588,11 @@ void PacketSend (void)
     int         c;
     doomdata_t  sw;
 
+    if (ShouldDropPacket())
+        return;
+
+    ApplyNetworkLatency();
+
     I_NetPackBuffer(netbuffer, &sw);
 
     c = sendto (sendsocket , &sw, doomcom->datalength
@@ -470,10 +631,29 @@ void PacketGet (void)
         return;
     }
 
+    if (ShouldDropPacket())
+    {
+        doomcom->remotenode = -1;
+        return;
+    }
+
+    ApplyNetworkLatency();
+
     doomcom->remotenode = i;
     doomcom->datalength = c;
 
     I_NetUnpackBuffer(&sw, netbuffer);
+}
+
+void NetSend(void)
+{
+    PacketSend();
+}
+
+boolean NetListen(void)
+{
+    PacketGet();
+    return doomcom->remotenode != -1;
 }
 
 int GetLocalAddress (void)
@@ -502,6 +682,8 @@ void I_InitNetwork (void)
 
     doomcom = malloc (sizeof (*doomcom) );
     memset (doomcom, 0, sizeof(*doomcom) );
+
+    InitNetworkSimulation();
 
     i = M_CheckParm ("-dup");
     if (i && i< myargc-1)
@@ -580,6 +762,25 @@ void I_InitNetwork (void)
     netbuffer = &doomcom->data;
 }
 
+void I_ShutdownNetwork(void)
+{
+    if (insocket)
+    {
+        close(insocket);
+        insocket = 0;
+    }
+
+    if (sendsocket)
+    {
+        close(sendsocket);
+        sendsocket = 0;
+    }
+
+    free(doomcom);
+    doomcom = NULL;
+    netbuffer = NULL;
+}
+
 void I_NetCmd (void)
 {
     if (doomcom->command == CMD_SEND)
@@ -596,10 +797,62 @@ void I_NetCmd (void)
 
 int I_RunNetworkHarness(int argc, char **argv)
 {
-    fprintf(stderr, "Network harness unavailable with legacy network stack.\n");
-    (void)argc;
-    (void)argv;
-    return 1;
+    doomdata_t expected;
+    int attempts;
+    char *defaultArgs[] = { "net_harness", "-net", "1", "127.0.0.1" };
+
+    if (argc < 4)
+    {
+        myargc = 4;
+        myargv = defaultArgs;
+    }
+    else
+    {
+        myargc = argc;
+        myargv = argv;
+    }
+
+    I_InitNetwork();
+    netbuffer = &doomcom->data;
+
+    memset(&expected, 0, sizeof(expected));
+    expected.player = 1;
+    expected.numtics = 1;
+    expected.cmds[0].forwardmove = 10;
+    expected.cmds[0].sidemove = -4;
+    expected.cmds[0].angleturn = 0x3456;
+    expected.cmds[0].consistancy = 0x1234;
+    expected.cmds[0].buttons = 0xAA;
+    doomcom->datalength = (int)&(((doomdata_t *)0)->cmds[expected.numtics]);
+
+    *netbuffer = expected;
+    doomcom->remotenode = 1;
+    NetSend();
+
+    for (attempts = 0; attempts < 64; ++attempts)
+    {
+        if (NetListen())
+            break;
+        usleep(1000);
+    }
+
+    if (doomcom->remotenode != 1)
+    {
+        fprintf(stderr, "Failed to receive loopback packet\n");
+        I_ShutdownNetwork();
+        return 1;
+    }
+
+    if (memcmp(netbuffer, &expected, doomcom->datalength) != 0)
+    {
+        fprintf(stderr, "Loopback packet mismatch\n");
+        I_ShutdownNetwork();
+        return 2;
+    }
+
+    printf("Network harness succeeded with %d attempts\n", attempts + 1);
+    I_ShutdownNetwork();
+    return 0;
 }
 
 #endif

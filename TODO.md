@@ -3,9 +3,9 @@
 The following tasks must be completed before the SDL2-focused adaptation is considered "done." They build on the initial video, CMake, and networking work already started.
 
 ## Build and platform hygiene
-- Collapse duplicate build targets in the root `CMakeLists.txt` and rely on one `add_executable` definition. Ensure options like `VIDEO_BACKEND`/`NETWORK_BACKEND` and `DOOM_USE_SDL2` are consistent and documented.
+- Collapse duplicate build targets in the root `CMakeLists.txt` and rely on one `add_executable` definition. Ensure options like `NETWORK_BACKEND` and `DOOM_USE_SDL2` are consistent and documented.
 - Keep `linuxdoom-1.10/CMakeLists.txt` centered on one `DOOM_SOURCES` list and the selected backends: SDL2 video, SDL_net when present, or legacy BSD sockets when explicitly chosen. Continue exercising both `NETWORK_BACKEND` variants and document the backend-dependent compile flags in `BUILDING.md`.
-- Remove unconditional X11 and legacy SDL1 dependencies from the build graph; verify that configuring with `-DVIDEO_BACKEND=SDL2 -DNETWORK_BACKEND=SDL_NET` succeeds without X11 headers.
+- Remove unconditional X11 and legacy SDL1 dependencies from the build graph; verify that configuring with SDL2 video and `-DNETWORK_BACKEND=SDL_NET` succeeds without X11 headers.
 - Add sensible feature toggles for optional components (e.g., MIDI, IPv6) and document them in `BUILDING.md`.
 
 ## Video and input
@@ -14,10 +14,10 @@ The following tasks must be completed before the SDL2-focused adaptation is cons
 - Ensure window resizing, fullscreen toggles, and input focus changes are handled uniformly via SDL2 events; audit mouse/keyboard code for parity with the legacy backends.
 
 ## Networking
-- Choose a single maintained backend—SDL_net (default via `i_net.c`) or BSD sockets (legacy path guarded by `DOOM_USE_LEGACY_NETWORKING`)—and remove the unused code path from `CMakeLists.txt`.
-- Make `net_harness` honor the selected `NETWORK_BACKEND` instead of always linking the SDL2_net stub; ensure SDL_net is optional when BSD sockets are selected.
-- Align `d_net.c`/`d_net.h` and `net_harness.c` with the chosen API (packet structs, init/teardown), and delete `sdl_net_stub/` if SDL_net becomes mandatory.
-- Add basic latency/packet-loss handling hooks so multiplayer remains stable on modern networks.
+- Legacy BSD networking now builds without SDL_net; choose a single maintained backend—SDL_net (default via `i_net.c`) or BSD sockets (legacy path guarded by `DOOM_USE_LEGACY_NETWORKING`)—and remove the unused code path from `CMakeLists.txt`.
+- Make `net_harness` honor the selected `NETWORK_BACKEND` instead of always linking the SDL2_net stub; ensure SDL_net is optional when BSD sockets are selected. (DONE)
+- Align `d_net.c`/`d_net.h` and `net_harness.c` with the chosen API (packet structs, init/teardown), and delete `sdl_net_stub/` if SDL_net becomes mandatory. Continue streamlining the shared packet handling once the preferred backend is locked in.
+- Add basic latency/packet-loss handling hooks so multiplayer remains stable on modern networks. Provide tunables for field testing and integrate them with the networking init path. (DONE)
 
 ## Audio
 - Unify audio on SDL2 and drop the external `sndserver`: refactor `i_sound.c`/`i_sound.h` for SDL2 audio exclusively and simplify command-line flags that referenced the helper process.

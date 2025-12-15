@@ -89,8 +89,8 @@ headers (eg. `libsdl2-dev` on Debian/Ubuntu) and run:
     cmake -S . -B build
     cmake --build build
 
-For legacy environments still on X11, pass `-DVIDEO_BACKEND=X11` after
-installing the X11 development headers. Note that X11 support is deprecated
-and scheduled for removal after December 31, 2025.
+The project now targets SDL2 exclusively for video and input. The deprecated
+X11 pathway has been retired from the CMake build; use SDL2-capable systems
+for future updates.
 
 The resulting binary is written to `build/bin/linuxdoom`.

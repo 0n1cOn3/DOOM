@@ -4,12 +4,12 @@ This codebase contains the legacy Linux Doom sources with a partially modernized
 
 ## Coding and build expectations
 - Prefer modern SDL2 backends; the old X11 path is deprecated and should only be touched for removal/migration work.
-- The top-level CMake build is the source of truth. Configure with `cmake -S . -B build -DVIDEO_BACKEND=SDL2 -DNETWORK_BACKEND=SDL_NET` and build with `cmake --build build`.
+- The top-level CMake build is the source of truth. Configure with `cmake -S . -B build -DNETWORK_BACKEND=SDL_NET` and build with `cmake --build build`.
 - If you change code (not just docs), run the build after configuration. There are no automated tests.
 
 ## Current status of the port to modern APIs
 - The SDL2 video backend exists (`linuxdoom-1.10/i_video_sdl2.c`); legacy X11/SDL1 code remains in-tree but is deprecated and should be retired once parity is confirmed.
-- CMake now builds one `linuxdoom` target and switches video/network backends via `VIDEO_BACKEND`/`NETWORK_BACKEND`, auto-injecting the SDL_net stub headers when the system library is absent.
+- CMake now builds one `linuxdoom` target with SDL2 video and the selected networking backend, auto-injecting the SDL_net stub headers when the system library is absent.
 - Networking defaults to SDL_net through `i_net.c`, with the BSD sockets path guarded by `DOOM_USE_LEGACY_NETWORKING` for compatibility.
 
 ## Suggested next steps
