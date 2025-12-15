@@ -858,6 +858,12 @@ int I_RunNetworkHarness(int argc, char **argv)
     expected.cmds[0].angleturn = 0x3456;
     expected.cmds[0].consistancy = 0x1234;
     expected.cmds[0].buttons = 0xAA;
+    // Prevent integer overflow in multiplication
+    if (expected.numtics > SIZE_MAX / sizeof(ticcmd_t)) {
+        fprintf(stderr, "Overflow in calculation of datalength\n");
+        I_ShutdownNetwork();
+        return 1;
+    }
     doomcom->datalength = offsetof(doomdata_t, cmds) + expected.numtics * sizeof(ticcmd_t);
 
     *netbuffer = expected;
