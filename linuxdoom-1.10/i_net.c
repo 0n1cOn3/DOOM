@@ -118,7 +118,9 @@ static void InitNetworkSimulation(void)
 
 // Thread-safe packet drop simulation using rand_r().
 // Note: This is for testing/debugging only. The random number
-// generation is not cryptographically secure.
+// generation is not cryptographically secure. The modulo operation
+// introduces a slight bias in the distribution, which is acceptable
+// for network simulation testing purposes.
 static boolean ShouldDropPacket(void)
 {
     if (net_packet_loss <= 0)
