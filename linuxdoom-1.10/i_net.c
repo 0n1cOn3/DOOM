@@ -69,6 +69,16 @@ typedef uint16_t doom_port_t;
 static int net_latency_ms = 0;
 static int net_packet_loss = 0;
 
+/*
+ * Parse a positive integer from a command-line argument string.
+ *
+ * text:       String to parse
+ * upperBound: Maximum allowed value (if > 0). Values <= 0 mean no upper limit.
+ * fallback:   Value to return if parsing fails or result is non-positive
+ *
+ * Returns the parsed positive integer, clamped to upperBound if specified,
+ * or fallback if the input is invalid.
+ */
 static int ParsePositiveIntArg(const char *text, int upperBound, int fallback)
 {
     char *end = NULL;
